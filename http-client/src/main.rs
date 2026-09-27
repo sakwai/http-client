@@ -1,11 +1,7 @@
 use std::io::{Write, stdin, stdout};
 use anyhow::Result;
-
-// disable smart view probably before running this lol, just got flagged? nice one. 2nd try it let it through, what the f**k?
-
-//error: could not execute process `target\debug\http-client.exe` (never executed)
-//Caused by:
-//  An Application Control policy has blocked this file. (os error 4551) , not joking.
+use tokio::net::TcpStream;
+use tokio::io::{AsyncBufReadExt, BufReader, AsyncWriteExt};
 
 #[tokio::main]
 async fn main() -> Result<()>{
@@ -16,9 +12,21 @@ async fn main() -> Result<()>{
     stdin().read_line(&mut domain)?;
     let domain = domain.trim();
 
-    let url = format!("http://{domain}:80"); // if you can figure out how to make it automatically formatted into a url, would be amazing, im getting hungry and impatient
-   
-    let request = reqwest::get(&url).await?;
-    print!("Status: {}", request.status());
+    let mut stream = TcpStream::connect(format!("{domain}:80")).await?;
+
+    let request = format!(
+        "GET / HTTP/1.1\r\n\
+        Host: {domain}\r\n\
+        Connection: close\r\n\
+        \r\n"
+    );
+
+    stream.write_all(request.as_bytes()).await?;
+
+    let mut reader = BufReader::new(stream);
+    let mut server_status = String::new();
+    reader.read_line(&mut server_status).await?;
+
+    print!("Status: {server_status}");
     Ok(())
 }
